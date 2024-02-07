@@ -32,13 +32,50 @@ class PhoneStateHandler: NSObject, FlutterStreamHandler, CXCallObserverDelegate{
             status = PhoneStateStatus.NOTHING
         }
         // Map
-        if(_eventSink != nil) { _eventSink!(
-            [
-                "status": status.rawValue,
-                "phoneNumber": call.uuid.uuidString // cannot get phone number on iOS
-            ]
-        ) }
+        if(_eventSink != nil) { 
+            
+            fetchFirstCallFromHistory { firstCall in
+                if let firstCall = firstCall {
+                    let phoneNumber = firstCall.phoneNumber
+                    let callType = firstCall.callType
+                    let date = firstCall.date
+                    print("First call from history:")
+                    print("Phone Number: \(phoneNumber)")
+                    print("Call Type: \(callType)")
+                    print("Date: \(date)")
+
+                     _eventSink!(
+                        [
+                            "status": status.rawValue,
+                            "phoneNumber": phoneNumber
+                        ]
+                    )
+
+                } else {
+                    print("No call history available.")
+                }
+            }
+        }
     }
+
+    func fetchFirstCallFromHistory(completion: @escaping (CXCallRecord?) -> Void) {
+        let store = CXCallDirectoryProvider.shared
+        store.getCallHistory() { callHistory, error in
+            if let error = error {
+                print("Error fetching call history: \(error.localizedDescription)")
+                completion(nil)
+                return
+            }
+
+            // Sort call history by date
+            let sortedCallHistory = callHistory.sorted { $0.date > $1.date }
+
+            // Return the first item of the sorted call history
+            completion(sortedCallHistory.first)
+        }
+    }
+
+
     
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         _eventSink = events
